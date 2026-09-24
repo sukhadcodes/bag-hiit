@@ -87,6 +87,15 @@ header.bar h1 span{color:var(--accent)}
 .tile:active{background:var(--surface2)}
 .tile.dim{opacity:.35}
 .custom-row{display:flex;gap:8px;margin-bottom:8px}
+.newmove{background:var(--surface);border-radius:12px;padding:10px;margin-bottom:8px}
+.icon-pick{display:flex;gap:6px;overflow-x:auto;padding:4px 0}
+.icon-pick button{flex:none;width:48px;height:48px;border-radius:10px;background:var(--surface2);padding:5px;border:2px solid transparent}
+.icon-pick button.on{border-color:var(--accent)}
+.nm-voice{margin:0 0 6px}
+.pal-sec{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+.mm-row{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:12px;padding:8px 10px;margin-top:8px}
+.mm-row .th{width:40px;height:40px;flex:none}
+.mm-row b{flex:1;font-weight:600}
 label.f{display:block;margin:14px 0 6px;font-size:14px;color:var(--muted)}
 input[type=text],input[type=number],select,textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;outline:none}
 textarea{min-height:360px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;line-height:1.5}
@@ -130,6 +139,11 @@ h2{font-size:20px;margin:24px 0 8px}
 .p-ctrl button.main svg{width:40px;height:40px}
 .p-end{font-size:14px;font-weight:600;background:rgba(0,0,0,.25);border-radius:999px;padding:8px 14px;color:#fff}
 .p-end.armed{background:#fff;color:#111}
+.p-end#pPocket{}
+#pocket{position:fixed;inset:0;background:#000;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#3a3a3a;user-select:none;-webkit-user-select:none;touch-action:none}
+#pkTime{font-size:64px;font-weight:800;font-variant-numeric:tabular-nums}
+#pkPhase{font-size:18px;letter-spacing:.1em;text-transform:uppercase;margin-top:6px}
+#pkHint{position:absolute;bottom:40px;font-size:13px;color:#2a2a2a}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:10px;z-index:20;font-size:14px}
 </style>
 </head>
@@ -186,9 +200,15 @@ h2{font-size:20px;margin:24px 0 8px}
         <button class="bodyt" id="bodyT">Body</button>
         <button class="btn sm" id="btnUndo" aria-label="Remove last move">⌫</button>
       </div>
-      <div class="custom-row" id="customRow" hidden>
-        <input type="text" id="customIn" placeholder="e.g. Slipping, Step left, Freestyle">
-        <button class="btn sm primary" id="customAdd">Add</button>
+      <div class="newmove" id="customRow" hidden>
+        <div class="custom-row">
+          <input type="text" id="customIn" list="presetList" placeholder="Move name, e.g. Squats, Burpees, Slipping">
+          <button class="btn sm primary" id="customAdd">Save</button>
+          <button class="btn sm" id="customCancel" aria-label="Cancel">✕</button>
+        </div>
+        <datalist id="presetList"></datalist>
+        <div class="nm-voice muted small" id="nmVoice"></div>
+        <div class="icon-pick" id="iconPick"></div>
       </div>
       <div class="pal-grid" id="palGrid"></div>
     </div>
@@ -229,7 +249,7 @@ h2{font-size:20px;margin:24px 0 8px}
   </select>
   <div class="grid2">
     <div><label class="f">Repeat combo every (s)</label><input type="number" min="5" data-s="callEvery"></div>
-    <div><label class="f">Volume (0–1)</label><input type="number" step="0.1" min="0" max="1" data-s="volume"></div>
+    <div><label class="f">Voice volume (%)</label><input type="number" step="25" min="50" max="400" data-s="voiceGain"></div>
   </div>
   <label class="f" for="sMode">While the coach talks, music should…</label>
   <select id="sMode" data-s="audioMode">
@@ -245,6 +265,10 @@ h2{font-size:20px;margin:24px 0 8px}
     <button class="btn sm" id="btnTestBeep" style="flex:1">Test bells</button>
   </div>
   <pre id="diag" class="muted small" style="white-space:pre-wrap;background:var(--surface);border-radius:10px;padding:10px;margin-top:8px"></pre>
+
+  <h2>My moves</h2>
+  <p class="muted small">Moves you've added in the editor (e.g. Squats, Burpees). Delete any you no longer need.</p>
+  <div id="mmList"></div>
 
   <h2>Timing (seconds)</h2>
   <div class="grid2">
@@ -287,7 +311,12 @@ h2{font-size:20px;margin:24px 0 8px}
     <button id="pPlay" class="main" aria-label="Pause"><svg viewBox="0 0 24 24" id="pPlayIcon"></svg></button>
     <button id="pNext" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
   </div>
-  <div style="text-align:center;padding-bottom:16px"><button class="p-end" id="pEnd">End workout</button></div>
+  <div style="text-align:center;padding-bottom:16px;display:flex;gap:10px;justify-content:center"><button class="p-end" id="pPocket">🌙 Pocket mode</button><button class="p-end" id="pEnd">End workout</button></div>
+</section>
+<section id="pocket" hidden>
+  <div id="pkTime">0:00</div>
+  <div id="pkPhase"></div>
+  <div id="pkHint">Hold anywhere for 1 second to exit</div>
 </section>
 
 <script>
@@ -348,11 +377,47 @@ G.move   = `<circle cx="32" cy="32" r="10" fill="${F}"/>`+arrow('M13 41A20 20 0 
 G.guard  = torso+head(32,37)+arm('19,54 25,42 27,33',1)+arm('45,54 39,42 37,33',1)+glove(26.5,30,1,6.8)+glove(37.5,30,1,6.8)
           +`<path d="M14 22Q32 10 50 22" fill="none" stroke="${H}" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 6"/>`;
 G.custom = `<path d="M36 5L17 36H30L26 59L47 25H34Z" fill="${H}"/>`;
+const ln=(d,w=4.5)=>`<path d="${d}" fill="none" stroke="${H}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const hd=(x,y)=>`<circle cx="${x}" cy="${y}" r="5.5" fill="${H}"/>`;
+const floor=`<path d="M8 57H56" stroke="${F}" stroke-width="3" stroke-linecap="round"/>`;
+const ICONS = {
+  bolt: G.custom,
+  squat: floor+hd(36,12)+ln('M34 19L26 35L39 40L36 55M33 23L48 25'),
+  lunge: floor+hd(32,10)+ln('M32 16V33M32 33L44 40V55M32 33L22 47L11 51M32 21L24 30M32 21L40 30'),
+  pushup: floor+hd(51,30)+ln('M46 34L10 50M42 36V56'),
+  plank: floor+hd(51,36)+ln('M46 40L10 52M42 42V55H52'),
+  jack: hd(32,10)+ln('M32 16V35M32 21L18 7M32 21L46 7M32 35L20 55M32 35L44 55'),
+  burpee: floor+hd(32,9)+ln('M32 15V33M32 20L26 5M32 20L38 5M32 33L27 47M32 33L37 47')+`<path d="M22 52H42" stroke="${F}" stroke-width="2.5" stroke-dasharray="2 4" stroke-linecap="round"/>`,
+  situp: floor+hd(20,26)+ln('M29 55L22 34M29 55L41 40L51 55M23 38L35 35'),
+  knees: floor+hd(30,9)+ln('M30 15V33M30 33V56M30 33L43 33L43 46M30 20L20 30M30 20L41 13'),
+  rope: hd(32,15)+ln('M32 21V38M32 38L28 55M32 38L36 55M32 25L22 35M32 25L42 35')+`<path d="M22 35C8 -2 56 -2 42 35" fill="none" stroke="${F}" stroke-width="2.5"/>`,
+  kettlebell: `<path d="M23 28C23 11 41 11 41 28" fill="none" stroke="${H}" stroke-width="5.5" stroke-linecap="round"/><circle cx="32" cy="41" r="15" fill="${H}"/>`,
+  dumbbell: `<path d="M16 32H48" stroke="${H}" stroke-width="5" stroke-linecap="round"/><rect x="8" y="20" width="9" height="24" rx="2.5" fill="${H}"/><rect x="47" y="20" width="9" height="24" rx="2.5" fill="${H}"/>`,
+  clock: `<circle cx="32" cy="35" r="20" fill="none" stroke="${H}" stroke-width="5"/><path d="M32 35V23M32 35L41 40M27 8H37M32 8V15" stroke="${H}" stroke-width="4.5" stroke-linecap="round"/>`,
+};
+const PRESETS = {'squats':'squat','jump squats':'squat','wall sit':'squat','lunges':'lunge','push ups':'pushup','mountain climbers':'pushup',
+  'plank':'plank','bear crawl':'plank','burpees':'burpee','sprawl':'burpee','tuck jumps':'burpee','skater jumps':'lunge','jumping jacks':'jack','star jumps':'jack',
+  'high knees':'knees','sit ups':'situp','crunches':'situp','bicycle crunches':'situp','russian twists':'situp','jump rope':'rope','kettlebell swings':'kettlebell','hold':'clock','breathe':'clock'};
+let MYMOVES = [];   // [{name, icon}] — filled from storage below
+const normName = n => String(n).toLowerCase().trim().replace(/\s+/g,' ');
+function iconFor(name){
+  const n=normName(name), cand=[n, n+'s', n.replace(/s$/,'')];
+  for(const k of cand){ const m=MYMOVES.find(m=>normName(m.name)===k); if(m) return ICONS[m.icon]||G.custom; }
+  for(const k of cand){ if(PRESETS[k]) return ICONS[PRESETS[k]]; }
+  return G.custom;
+}
+function clipKeyFor(name){
+  const n=normName(name).replace(/-/g,' ');
+  for(const k of [n, n+'s', n.replace(/s$/,'')]){ const key='w_'+k.replace(/ /g,'_'); if(TEXTS[key]) return key; }
+  return null;
+}
 const BODY_BADGE = `<rect x="15" y="52" width="34" height="11" rx="5.5" fill="${H}"/><text x="32" y="60.3" text-anchor="middle" font-size="8.5" font-weight="800" fill="var(--hltext)" font-family="system-ui,sans-serif">BODY</text>`;
-const svgFor = t => `<svg class="mv" viewBox="0 0 64 64" aria-hidden="true">${t.x ? G.custom : G[t.m]}${t.b ? BODY_BADGE : ''}</svg>`;
+const svgFor = t => `<svg class="mv" viewBox="0 0 64 64" aria-hidden="true">${t.x ? iconFor(t.x) : G[t.m]}${t.b ? BODY_BADGE : ''}</svg>`;
+const svgIcon = k => `<svg class="mv" viewBox="0 0 64 64" aria-hidden="true">${ICONS[k]}</svg>`;
 
 /* ================= Voice clip texts (also used for the phone-voice fallback) ================= */
 const TEXTS = {"n1":"One!","n1b":"One, body!","n2":"Two!","n2b":"Two, body!","n3":"Three!","n3b":"Three, body!","n4":"Four!","n4b":"Four, body!","n5":"Five!","n5b":"Five, body!","n6":"Six!","n6b":"Six, body!","r1":"Round one.","r2":"Round two.","r3":"Round three.","r4":"Round four.","r5":"Round five.","r6":"Round six.","r7":"Round seven.","r8":"Round eight.","r9":"Round nine.","r10":"Round ten.","jab":"Jab!","cross":"Cross!","lhook":"Left hook!","rhook":"Right hook!","lupper":"Left uppercut!","rupper":"Right uppercut!","lover":"Left overhand!","rover":"Right overhand!","jabb":"Jab, body!","crossb":"Cross, body!","lhookb":"Left hook, body!","rhookb":"Right hook, body!","lupperb":"Left uppercut, body!","rupperb":"Right uppercut, body!","slipl":"Slip left!","slipr":"Slip right!","roll":"Roll!","stepin":"Step in!","stepout":"Step out!","move":"Move around the bag!","guard":"Cover!","w_slipping":"Slipping!","w_movement":"Movement!","w_step_left":"Step left!","w_step_right":"Step right!","w_bob_right":"Bob right!","w_bob_left":"Bob left!","w_freestyle":"Freestyle!","w_cover":"Cover!","w_footwork":"Footwork!","w_shadow":"Shadow box!","ready":"Get ready.","go":"Go!","moderate":"Moderate.","rest":"Rest.","restgood":"Rest. Good work.","next":"Next up.","ten":"Ten seconds! Push!","half":"Halfway! Keep working!","lastround":"Last round!","cool":"Cool down.","done":"Workout complete. Great job!","resume":"Let's go!","then":"then,","test":"Voice check. Music should dip while I talk.","comingup":"Coming up.","thenmod":"Then, moderate.","roundbreak":"Round complete. Great work. Take a breather.","thirtyleft":"Thirty seconds left.","set1":"Set one.","set2":"Set two.","set3":"Set three.","set4":"Set four.","set5":"Set five.","setfinal":"Final set!"};
+Object.assign(TEXTS, {"w_squats":"Squats!","w_jump_squats":"Jump squats!","w_lunges":"Lunges!","w_push_ups":"Push ups!","w_plank":"Plank!","w_burpees":"Burpees!","w_jumping_jacks":"Jumping jacks!","w_star_jumps":"Star jumps!","w_mountain_climbers":"Mountain climbers!","w_high_knees":"High knees!","w_sit_ups":"Sit ups!","w_crunches":"Crunches!","w_russian_twists":"Russian twists!","w_jump_rope":"Jump rope!","w_kettlebell_swings":"Kettlebell swings!","w_sprawl":"Sprawl!","w_duck":"Duck!","w_pivot":"Pivot!","w_switch_stance":"Switch stance!","w_double_jab":"Double jab!","w_speed":"Speed!","w_power":"Power!","w_hold":"Hold!","w_breathe":"Breathe!","w_wall_sit":"Wall sit!","w_bicycle_crunches":"Bicycle crunches!","w_shadow_boxing":"Shadow boxing!","w_skater_jumps":"Skater jumps!","w_tuck_jumps":"Tuck jumps!","w_bear_crawl":"Bear crawl!"});
 
 /* ================= Default workouts: each round = hard line, then moderate line ================= */
 const DEFAULT_TEXT = [
@@ -488,7 +553,7 @@ const store = {
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)) }catch(e){} }
 };
 const DEFAULT_SETTINGS = { hard:60, mod:30, rest:30, roundRest:90, sets:3, ready:10, callEvery:20,
-  voice:true, beeps:true, sfx:'bell', voicePack:'heart', voiceURI:'', callStyle:'numbers', volume:1, audioMode:'duck', silentOverride:false };
+  voice:true, beeps:true, sfx:'bell', voicePack:'heart', voiceURI:'', callStyle:'numbers', volume:1, voiceGain:250, audioMode:'duck', silentOverride:false };
 const seed = () => DEFAULT_TEXT.map(([name,text],i)=>({id:'d'+i, name, rounds:parseText(text)}));
 let S = Object.assign({}, DEFAULT_SETTINGS, store.get('bh2.settings', {}));
 if(S.beeps===false && !store.get('bh2.settings',{}).sfx) S.sfx='off';
@@ -502,6 +567,8 @@ if(!W){ // first run of v2: seed defaults + carry over custom workouts made in v
 }
 const saveW = () => store.set('bh2.workouts', W);
 const saveS = () => store.set('bh2.settings', S);
+MYMOVES = store.get('bh2.moves', []);
+const saveM = () => store.set('bh2.moves', MYMOVES);
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -601,12 +668,15 @@ $('#bRounds').addEventListener('click',e=>{
 });
 function renderPalette(){
   $('#palGrid').innerHTML = MOVES.map(m=>`<button class="tile ${bodyOn&&!m.body?'dim':''}" data-m="${m.id}"><div class="th">${svgFor({m:m.id,b:bodyOn&&m.body?1:0})}</div><span>${esc(m.num? m.num+' · '+m.name : m.name)}</span></button>`).join('')
-    + `<button class="tile" data-m="_custom"><div class="th">${svgFor({x:'?'})}</div><span>Custom…</span></button>`;
+    + `<div class="pal-sec">My moves</div>`
+    + MYMOVES.map(m=>`<button class="tile" data-x="${esc(m.name)}"><div class="th">${svgFor({x:m.name})}</div><span>${esc(m.name)}</span></button>`).join('')
+    + `<button class="tile" data-m="_custom"><div class="th" style="display:grid;place-items:center;font-size:28px;color:var(--accent)">＋</div><span>New move</span></button>`;
   $('#bodyT').classList.toggle('on',bodyOn);
 }
 $('#palGrid').addEventListener('click',e=>{
   const t=e.target.closest('.tile'); if(!t) return;
-  if(t.dataset.m==='_custom'){ $('#customRow').hidden=false; $('#customIn').focus(); return; }
+  if(t.dataset.x){ addTok({x:t.dataset.x}); return; }
+  if(t.dataset.m==='_custom'){ openNewMove(); return; }
   const m=MV[t.dataset.m]; if(bodyOn && !m.body) return toast('Body shots are for punches 1–6');
   addTok(bodyOn&&m.body ? {m:m.id,b:1} : {m:m.id});
 });
@@ -618,7 +688,26 @@ function addTok(tok){
 }
 $('#bodyT').onclick=()=>{ bodyOn=!bodyOn; renderPalette(); };
 $('#btnUndo').onclick=()=>{ draft.rounds[target.r][target.k].pop(); renderBuilder(); };
-$('#customAdd').onclick=()=>{ const v=$('#customIn').value.trim(); if(v) parseCombo(v).forEach(addTok); $('#customIn').value=''; $('#customRow').hidden=true; };
+let nmIcon='bolt';
+function openNewMove(){
+  $('#customRow').hidden=false; $('#customIn').value=''; nmIcon='bolt';
+  $('#presetList').innerHTML=Object.keys(PRESETS).map(k=>`<option value="${esc(k.replace(/\b\w/g,ch=>ch.toUpperCase()))}">`).join('');
+  drawIconPick(); nmVoiceHint(); $('#customIn').focus();
+}
+function drawIconPick(){ $('#iconPick').innerHTML=Object.keys(ICONS).map(k=>`<button data-i="${k}" class="${k===nmIcon?'on':''}" aria-label="${k}">${svgIcon(k)}</button>`).join(''); }
+function nmVoiceHint(){
+  const v=$('#customIn').value.trim();
+  $('#nmVoice').textContent = !v ? 'Pick a suggestion to get the coach voice, or type your own.' : clipKeyFor(v) ? '🎙 Coach will call this' : '📱 Phone voice will call this';
+}
+$('#customIn').oninput=()=>{ const n=normName($('#customIn').value); if(PRESETS[n]){ nmIcon=PRESETS[n]; drawIconPick(); } nmVoiceHint(); };
+$('#iconPick').onclick=e=>{ const b=e.target.closest('button'); if(b){ nmIcon=b.dataset.i; drawIconPick(); } };
+$('#customCancel').onclick=()=>{ $('#customRow').hidden=true; };
+$('#customAdd').onclick=()=>{
+  const v=$('#customIn').value.trim().replace(/-/g,' '); if(!v) return;
+  const ex=MYMOVES.find(m=>normName(m.name)===normName(v));
+  if(ex) ex.icon=nmIcon; else MYMOVES.push({name:v, icon:nmIcon});
+  saveM(); $('#customRow').hidden=true; renderPalette(); addTok({x:v});
+};
 $('#customIn').onkeydown=e=>{ if(e.key==='Enter') $('#customAdd').click(); };
 $('#btnAddRound').onclick=()=>{ draft.rounds.push({hard:[],mod:[]}); target={r:draft.rounds.length-1,k:'hard'}; renderBuilder(); };
 function commit(){
@@ -648,6 +737,8 @@ function openSettings(){
   document.querySelectorAll('[data-s]').forEach(el=>{ const k=el.dataset.s; if(el.type==='checkbox') el.checked=!!S[k]; else el.value=S[k]; });
   document.querySelectorAll('#sStyle button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.callStyle));
   $('#devVoiceWrap').hidden = S.voicePack!=='device';
+  $('#mmList').innerHTML = MYMOVES.length ? MYMOVES.map((m,i)=>`<div class="mm-row"><div class="th">${svgFor({x:m.name})}</div><b>${esc(m.name)}</b><span class="muted small">${clipKeyFor(m.name)?'🎙 coach':'📱 phone'}</span><button class="btn sm danger" data-del="${i}">Delete</button></div>`).join('') : '<p class="muted small">None yet. Add one with “＋ New move” when editing a workout.</p>';
+  $('#mmList').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ MYMOVES.splice(+b.dataset.del,1); saveM(); openSettings(); });
   loadVoices(); show('settings'); diag();
 }
 document.querySelectorAll('[data-s]').forEach(el=>el.addEventListener('change',()=>{
@@ -676,7 +767,7 @@ function diag(){
   ].filter(Boolean).join('\n');
 }
 $('#btnExport').onclick=()=>{
-  const blob=new Blob([JSON.stringify({version:2,workouts:W,settings:S},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({version:2,workouts:W,settings:S,moves:MYMOVES},null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='bag-hiit-backup.json'; a.click();
 };
 $('#btnImport').onclick=()=>$('#fileImport').click();
@@ -687,6 +778,7 @@ $('#fileImport').onchange=async e=>{
       W = d.version===2 ? d.workouts : d.workouts.map(w=>({id:w.id,name:w.name,rounds:(w.rounds||[]).map(r=>({hard:parseCombo((r.combos||[])[0]||''),mod:parseCombo((r.combos||[])[1]||'')}))}));
       saveW();
     }
+    if(Array.isArray(d.moves)){ MYMOVES=d.moves; saveM(); }
     if(d.settings && d.version===2){ S=Object.assign({},DEFAULT_SETTINGS,d.settings); saveS(); Voice.load(S.voicePack); }
     toast('Imported'); openSettings();
   }catch(err){ toast('Could not read that file'); }
@@ -699,7 +791,15 @@ $('#btnReset').onclick=()=>{
 };
 
 /* ================= Audio engine ================= */
-let actx=null;
+let actx=null, vOut=null;
+// Voice goes through a boost + limiter so it can be much louder than 100% without distorting.
+function voiceOut(){
+  if(vOut && vOut.context===actx) return vOut;
+  const lim=actx.createDynamicsCompressor();
+  lim.threshold.value=-10; lim.knee.value=4; lim.ratio.value=20; lim.attack.value=0.002; lim.release.value=0.12;
+  const make=actx.createGain(); make.gain.value=1.4;
+  lim.connect(make).connect(actx.destination); vOut=lim; return vOut;
+}
 // iOS is picky: the AudioContext is created and unlocked inside a tap (Start / Test).
 function ctx(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); actx.onstatechange=()=>{ if(actx.state==='interrupted'||actx.state==='suspended') actx.resume().catch(()=>{}); }; }catch(e){} } return actx; }
 function setSession(type){ try{ if(navigator.audioSession) navigator.audioSession.type=type; }catch(e){} }
@@ -739,7 +839,7 @@ const Voice = {
 };
 const c = (key,gap) => ({c:key, gap});
 function tokPart(t){
-  if(t.x){ const k='w_'+t.x.toLowerCase().trim().replace(/\s+/g,'_'); return TEXTS[k] ? c(k) : {t:t.x}; }
+  if(t.x){ const k=clipKeyFor(t.x); return k ? c(k) : {t:t.x}; }
   const m=MV[t.m];
   if(S.callStyle==='numbers' && m.num) return c('n'+m.num+(t.b?'b':''));
   return c(m.id+(t.b&&m.body?'b':''));
@@ -767,7 +867,7 @@ function ttsSay(text){
     if(!('speechSynthesis' in window)) return res();
     const u=new SpeechSynthesisUtterance(text), v=bestVoice();
     if(v){ u.voice=v; u.lang=v.lang; } else u.lang='en-US';
-    u.rate=0.9; u.volume=S.volume??1;
+    u.rate=0.9; u.volume=1;
     let done=false; const fin=()=>{ if(!done){ done=true; res(); } };
     u.onend=fin; u.onerror=fin; setTimeout(fin, 1500+text.length*120);
     speechSynthesis.speak(u);
@@ -775,7 +875,7 @@ function ttsSay(text){
 }
 function playRun(run){
   const a=actx; let t=a.currentTime+0.04; const t0=t;
-  const vol=Math.max(0,Math.min(1,S.volume??1)), g=a.createGain(); g.connect(a.destination);
+  const vol=Math.max(0.5,Math.min(4,(S.voiceGain||250)/100)), g=a.createGain(); g.connect(voiceOut());
   g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(Math.max(vol,0.0002),t0+0.12);
   for(const p of run){ const s=a.createBufferSource(); s.buffer=Voice.bufs[p.c]; s.connect(g); s.start(t); sources.push(s); t+=s.buffer.duration+(p.gap??0.35); }
   return new Promise(r=>setTimeout(r,(t-t0+0.04)*1000));
@@ -916,7 +1016,19 @@ function buildTimeline(w){
 /* ================= Player ================= */
 let segs=[], idx=0, segEnd=0, remMs=0, paused=false, timer=null, callPtr=0, lastWhole=null, wakeLock=null, startedAt=0, RUN=null, endArmed=false;
 const PHASE={ready:'Get ready', hard:'Hard', mod:'Moderate', rest:'Rest'};
-async function lockScreen(){ try{ if('wakeLock' in navigator) wakeLock=await navigator.wakeLock.request('screen'); }catch(e){} }
+let keepVid=null;
+async function lockScreen(){
+  let ok=false;
+  try{ if('wakeLock' in navigator){ wakeLock=await navigator.wakeLock.request('screen'); ok=true; } }catch(e){}
+  // Backup for iPhones where Wake Lock isn't honoured: a tiny silent looping video keeps the screen awake.
+  try{
+    if(!keepVid){ keepVid=document.createElement('video'); keepVid.setAttribute('playsinline',''); keepVid.muted=true; keepVid.loop=true;
+      keepVid.style.cssText='position:fixed;width:1px;height:1px;opacity:0.01;pointer-events:none;bottom:0;left:0';
+      keepVid.src='data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAOxbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAtt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAQAAABAAAAAAJTbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAoAAAAUABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAAB/m1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAb5zdGJsAAAAvnN0c2QAAAAAAAAAAQAAAK5hdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAANGF2Y0MBZAAK/+EAF2dkAAqs2V7ARAAAAwAEAAADACg8SJZYAQAGaOvjxMhM/fj4AAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAA0sAAANLAAAABhzdHRzAAAAAAAAAAEAAAAKAAAIAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAYGN0dHMAAAAAAAAACgAAAAEAABAAAAAAAQAAKAAAAAABAAAQAAAAAAEAAAAAAAAAAQAACAAAAAABAAAoAAAAAAEAABAAAAAAAQAAAAAAAAABAAAIAAAAAAEAABAAAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACyAAAAA0AAAANAAAADQAAAA0AAAATAAAADwAAAA0AAAANAAAAEwAAABRzdGNvAAAAAAAAAAEAAAPhAAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAA1NtZGF0AAACrwYF//+r3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTEgcmVmPTMgZGVibG9jaz0xOi0zOi0zIGFuYWx5c2U9MHgzOjB4MTEzIG1lPWhleCBzdWJtZT03IHBzeT0xIHBzeV9yZD0yLjAwOjAuNzAgbWl4ZWRfcmVmPTEgbWVfcmFuZ2U9MTYgY2hyb21hX21lPTEgdHJlbGxpcz0xIDh4OGRjdD0xIGNxbT0wIGRlYWR6b25lPTIxLDExIGZhc3RfcHNraXA9MSBjaHJvbWFfcXBfb2Zmc2V0PS00IHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTMgYl9weXJhbWlkPTIgYl9hZGFwdD0xIGJfYmlhcz0wIGRpcmVjdD0xIHdlaWdodGI9MSBvcGVuX2dvcD0wIHdlaWdodHA9MiBrZXlpbnQ9MjUwIGtleWludF9taW49NSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTQwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMjAAgAAAABFliIQAFs5//vfTP8yy7JolgQAAAAlBmiRsQVzn/vAAAAAJQZ5CeIJ5z5yBAAAACQGeYXRBLOehgAAAAAkBnmNqQSznoYEAAAAPQZpoSahBaJlMCCec//7hAAAAC0GehkURLBPOf5yBAAAACQGepXRBLOehgQAAAAkBnqdqQSznoYAAAAAPQZqpSahBbJlMCCWc//7g'; document.body.appendChild(keepVid); }
+    keepVid.play().catch(()=>{});
+  }catch(e){}
+}
+function releaseScreen(){ try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null; try{ keepVid&&keepVid.pause(); }catch(e){} }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && timer && !paused) lockScreen(); });
 
 async function startWorkout(w){
@@ -932,11 +1044,11 @@ async function startWorkout(w){
   startSeg(0);
   clearInterval(timer); timer=setInterval(tick,100);
 }
-function startSeg(i){
+function startSeg(i, silent){
   idx=Math.max(0,Math.min(segs.length-1,i));
   const s=segs[idx];
-  segEnd=performance.now()+s.dur*1000; remMs=s.dur*1000; callPtr=0; lastWhole=null;
-  if(s.type==='rest' && (s.big||s.cool)) sfx('roundEnd'); else if(s.type!=='ready') sfx('transition');
+  segEnd=Date.now()+s.dur*1000; remMs=s.dur*1000; callPtr=0; lastWhole=null;
+  if(!silent){ if(s.type==='rest' && (s.big||s.cool)) sfx('roundEnd'); else if(s.type!=='ready') sfx('transition'); }
   const tiles = (toks,cls='') => toks.map(t=>`<div class="pm ${cls}"><div class="th">${svgFor(t)}</div><span>${esc(label(t))}</span></div>`).join('');
   $('#pMoves').innerHTML = s.type==='rest' && s.next
     ? `<div class="p-grp"><div class="p-lbl">Hard</div><div class="p-row">${tiles(s.show)}</div></div>`
@@ -946,8 +1058,11 @@ function startSeg(i){
 }
 function tick(){
   if(paused) return;
-  let rem=(segEnd-performance.now())/1000;
-  if(rem<=0){ if(idx>=segs.length-1) return finish(); startSeg(idx+1); rem=segs[idx].dur; }
+  let rem=(segEnd-Date.now())/1000;
+  while(rem<=0){   // also catches up if the phone slept through one or more phases
+    if(idx>=segs.length-1) return finish();
+    const over=-rem; startSeg(idx+1, over>1.5); segEnd-=over*1000; rem=(segEnd-Date.now())/1000;
+  }
   const s=segs[idx], el=s.dur-rem;
   while(callPtr<s.calls.length && el>=s.calls[callPtr].at){
     const call=s.calls[callPtr++];
@@ -961,12 +1076,19 @@ function tick(){
   }
   render(rem);
 }
+function pocket(on){ $('#pocket').hidden=!on; if(on) render(); }
+$('#pPocket').onclick=()=>pocket(true);
+(()=>{ let t=null; const el=$('#pocket');
+  const start=e=>{ e.preventDefault(); t=setTimeout(()=>pocket(false),900); }, end=()=>clearTimeout(t);
+  el.addEventListener('touchstart',start,{passive:false}); el.addEventListener('mousedown',start);
+  el.addEventListener('touchend',end); el.addEventListener('mouseup',end); })();
 function render(rem){
   const s=segs[idx]; if(!s) return;
-  if(rem==null) rem = paused ? remMs/1000 : (segEnd-performance.now())/1000;
+  if(rem==null) rem = paused ? remMs/1000 : (segEnd-Date.now())/1000;
   $('#player').className = s.type==='ready' ? '' : s.type;
   $('#pPhase').textContent = paused ? 'Paused' : (s.cool ? 'Cool down' : s.big ? 'Round break' : PHASE[s.type]);
   $('#pTime').textContent = fmt(rem);
+  if(!$('#pocket').hidden){ $('#pkTime').textContent=fmt(rem); $('#pkPhase').textContent=$('#pPhase').textContent||''; }
   const d = s.next || s;
   $('#pRound').textContent = `Round ${d.r+1}/${RUN.rounds.length} · Set ${d.s+1}/${S.sets}`;
   $('#pSub').textContent = s.type==='rest' ? (s.cool ? 'Nice work. Breathe.' : (s.next.s===0 ? `Coming up: Round ${s.next.r+1}` : `Coming up: Set ${s.next.s+1}`)) : s.type==='ready' ? 'Round 1 · Set 1' : '';
@@ -982,19 +1104,19 @@ function setPlayIcon(){
 }
 function togglePause(){
   if(!segs.length || !timer) return;
-  if(!paused){ remMs=Math.max(0,segEnd-performance.now()); paused=true; stopVoice(); setSession(idleSession()); }
-  else { unlockAudio(); segEnd=performance.now()+remMs; paused=false; lockScreen(); say([c('resume')],2); }
+  if(!paused){ remMs=Math.max(0,segEnd-Date.now()); paused=true; stopVoice(); setSession(idleSession()); }
+  else { unlockAudio(); segEnd=Date.now()+remMs; paused=false; lockScreen(); say([c('resume')],2); }
   setPlayIcon(); render();
 }
 function jump(i){ stopVoice(); startSeg(i); if(paused){ remMs=segs[idx].dur*1000; render(); } }
 $('#pPlay').onclick=togglePause;
 $('#pNext').onclick=()=>{ if(!timer) return; if(idx>=segs.length-1) return finish(); jump(idx+1); };
-$('#pPrev').onclick=()=>{ if(!timer) return; const el=segs[idx].dur-(paused?remMs/1000:(segEnd-performance.now())/1000); jump(el>3?idx:idx-1); };
+$('#pPrev').onclick=()=>{ if(!timer) return; const el=segs[idx].dur-(paused?remMs/1000:(segEnd-Date.now())/1000); jump(el>3?idx:idx-1); };
 function resetEnd(){ endArmed=false; $('#pEnd').textContent='End workout'; $('#pEnd').classList.remove('armed'); }
 $('#pEnd').onclick=()=>{
   if(!endArmed){ endArmed=true; $('#pEnd').textContent='Tap again to end'; $('#pEnd').classList.add('armed'); setTimeout(()=>{ if(timer) resetEnd(); },3000); return; }
   clearInterval(timer); timer=null; stopVoice(); setSession('ambient'); segs=[];
-  try{ wakeLock&&wakeLock.release(); }catch(e){} wakeLock=null;
+  releaseScreen(); pocket(false);
   $('#player').hidden=true; openDetail(RUN);
 };
 function finish(){
