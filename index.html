@@ -757,10 +757,10 @@ $('#btnTestBeep').onclick=async()=>{ await unlockAudio(); const was=S.sfx; S.sfx
 function diag(){
   const n=Object.keys(Voice.bufs).length, total=Object.keys(TEXTS).length;
   $('#diag').textContent = [
-    `Coach clips: ${S.voicePack==='device' ? 'using phone voice' : n+'/'+total+' ready'}${Voice.error?' — '+Voice.error:''}`,
+    `Coach clips: ${S.voicePack==='device' ? 'using phone voice' : Voice.error ? '✗ '+Voice.error : n===total ? '✓ '+n+'/'+total+' ready' : !Object.keys(Voice.raw).length ? 'downloading…' : 'preparing '+n+'/'+total}`,
     `Last spoken with: ${lastPath}`,
-    `Round bell: ${RoundBell.buf ? 'your mp3 ✓' : RoundBell.error || 'loading…'}`,
-    `Audio engine: ${actx ? actx.state : 'not started (tap a test button)'}`,
+    `Round bell: ${RoundBell.buf ? '✓ your mp3' : RoundBell.error ? '✗ '+RoundBell.error+' (using built-in bell)' : RoundBell.raw ? 'preparing…' : 'downloading…'}`,
+    `Audio engine: ${actx ? (actx.state==='running'?'✓ running':actx.state) : 'starts on your first tap (normal)'}`,
     `Music ducking support: ${navigator.audioSession ? 'yes ('+navigator.audioSession.type+')' : 'not available on this browser'}`,
     `Phone voice: ${'speechSynthesis' in window ? (speechSynthesis.getVoices().length+' voices') : 'not available'}`,
     /iPhone|iPad/.test(navigator.userAgent) ? 'iPhone: web sound is muted in Silent Mode unless the switch above is on.' : ''
@@ -791,7 +791,12 @@ $('#btnReset').onclick=()=>{
 };
 
 /* ================= Audio engine ================= */
-let actx=null, vOut=null;
+let actx=null, vOut=null, offCtx=null;
+function decoderCtx(){
+  if(actx) return actx;
+  if(!offCtx){ try{ const O=window.OfflineAudioContext||window.webkitOfflineAudioContext; offCtx=new O(1,24000,24000); }catch(e){} }
+  return offCtx;
+}
 // Voice goes through a boost + limiter so it can be much louder than 100% without distorting.
 function voiceOut(){
   if(vOut && vOut.context===actx) return vOut;
@@ -825,11 +830,11 @@ const Voice = {
     this.fetched = fetch(`audio/${pack}.json`).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
       .then(j=>{ if(this.pack===pack) this.raw=j; }).catch(e=>{ this.error='Could not load audio/'+pack+'.json ('+e.message+')'; });
     this.ready=this.fetched;
-    if(actx) this.decode();
+    this.fetched.then(()=>this.decode());
     return this.ready;
   },
   decode(){
-    const a=actx, pack=this.pack; if(!a || pack==='device') return this.ready;
+    const a=decoderCtx(), pack=this.pack; if(!a || pack==='device') return this.ready;
     const dec = ab => new Promise((res,rej)=>{ const p=a.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); });
     return this.ready = this.fetched.then(()=>Promise.all(Object.entries(this.raw).map(async([k,v])=>{
       if(this.bufs[k]) return;
@@ -952,10 +957,10 @@ function clapper(){ // the wooden "10 seconds" knock
 // Your own round-end bell: put an mp3 at audio/round-bell.mp3 (falls back to a triple ring)
 const RoundBell = { raw:null, buf:null, error:'',
   fetch(){ fetch('audio/round-bell.mp3').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.arrayBuffer(); })
-    .then(ab=>{ this.raw=ab; if(actx) this.decode(); }).catch(e=>{ this.error='audio/round-bell.mp3 not found ('+e.message+')'; }); },
-  decode(){ if(!actx || !this.raw || this.buf) return; const ab=this.raw.slice(0);
+    .then(ab=>{ this.raw=ab; this.decode(); }).catch(e=>{ this.error='audio/round-bell.mp3 not found ('+e.message+')'; }); },
+  decode(){ const dc=decoderCtx(); if(!dc || !this.raw || this.buf) return; const ab=this.raw.slice(0);
     const done=b=>{ this.buf=b; }, fail=()=>{ this.error='round-bell.mp3 could not be decoded'; };
-    const p=actx.decodeAudioData(ab,done,fail); if(p&&p.then) p.then(done,fail); },
+    const p=dc.decodeAudioData(ab,done,fail); if(p&&p.then) p.then(done,fail); },
   play(){ if(!actx) return; if(!this.buf) return bell(3);
     const src=actx.createBufferSource(), g=actx.createGain(); g.gain.value=0.9; src.buffer=this.buf; src.connect(g).connect(actx.destination); src.start(); }
 };
@@ -1136,6 +1141,7 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ================= Boot ================= */
+setInterval(()=>{ if(!$('#settings').hidden) diag(); },1000);
 if(/iPhone|iPad/.test(navigator.userAgent)) $('#iosHint').hidden=false;
 Voice.load(S.voicePack); RoundBell.fetch();
 renderHome();
