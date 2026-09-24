@@ -223,7 +223,7 @@ h2{font-size:20px;margin:24px 0 8px}
   <label class="toggle">Voice guidance <input type="checkbox" data-s="voice"></label>
   <label class="f" for="sSfx">Sound effects</label>
   <select id="sSfx" data-s="sfx">
-    <option value="bell">Boxing ring: bell + 10-second clapper</option>
+    <option value="bell">Boxing ring: bells + 10-second clapper</option>
     <option value="beep">Simple beeps</option>
     <option value="off">Off</option>
   </select>
@@ -242,7 +242,7 @@ h2{font-size:20px;margin:24px 0 8px}
   <button class="btn block" id="btnTest" style="margin-top:12px">🔊 Test voice</button>
   <div class="row" style="margin-top:8px">
     <button class="btn sm" id="btnTestTTS" style="flex:1">Test phone voice</button>
-    <button class="btn sm" id="btnTestBeep" style="flex:1">Test bell</button>
+    <button class="btn sm" id="btnTestBeep" style="flex:1">Test bells</button>
   </div>
   <pre id="diag" class="muted small" style="white-space:pre-wrap;background:var(--surface);border-radius:10px;padding:10px;margin-top:8px"></pre>
 
@@ -660,13 +660,15 @@ document.querySelectorAll('[data-s]').forEach(el=>el.addEventListener('change',(
 }));
 document.querySelectorAll('#sStyle button').forEach(b=>b.onclick=()=>{ S.callStyle=b.dataset.v; saveS(); openSettings(); });
 $('#btnSettings').onclick=openSettings;
-$('#btnTest').onclick=async()=>{ await unlockAudio(); await Promise.race([Voice.ready,new Promise(r=>setTimeout(r,3000))]); say([c('test'),c('r1'),c('go'),...comboParts(parseCombo('2-3-2'))],2); diag(); setTimeout(diag,1500); };
+$('#btnTest').onclick=async()=>{ await unlockAudio(); $('#diag').textContent='Loading coach voice…'; await Promise.race([Voice.ready,new Promise(r=>setTimeout(r,10000))]); say([c('test'),c('r1'),c('go'),...comboParts(parseCombo('2-3-2'))],2); diag(); setTimeout(diag,1500); };
 $('#btnTestTTS').onclick=()=>{ unlockAudio(); stopVoice(); ttsSay('Phone voice check. Round one. Go!'); diag(); };
-$('#btnTestBeep').onclick=async()=>{ await unlockAudio(); bell(1); setTimeout(()=>clapper(),2200); setTimeout(()=>bell(3),3400); diag(); };
+$('#btnTestBeep').onclick=async()=>{ await unlockAudio(); const was=S.sfx; S.sfx='bell'; bell(1,0.32,0.5); setTimeout(()=>clapper(),1500); setTimeout(()=>{ RoundBell.play(); S.sfx=was; },2600); diag(); };
 function diag(){
   const n=Object.keys(Voice.bufs).length, total=Object.keys(TEXTS).length;
   $('#diag').textContent = [
     `Coach clips: ${S.voicePack==='device' ? 'using phone voice' : n+'/'+total+' ready'}${Voice.error?' — '+Voice.error:''}`,
+    `Last spoken with: ${lastPath}`,
+    `Round bell: ${RoundBell.buf ? 'your mp3 ✓' : RoundBell.error || 'loading…'}`,
     `Audio engine: ${actx ? actx.state : 'not started (tap a test button)'}`,
     `Music ducking support: ${navigator.audioSession ? 'yes ('+navigator.audioSession.type+')' : 'not available on this browser'}`,
     `Phone voice: ${'speechSynthesis' in window ? (speechSynthesis.getVoices().length+' voices') : 'not available'}`,
@@ -711,7 +713,7 @@ function unlockAudio(){
     const b=a.createBuffer(1,1,22050), src=a.createBufferSource(); src.buffer=b; src.connect(a.destination); src.start(0);
   }catch(e){}
   const res = a.state==='running' ? Promise.resolve() : a.resume().catch(()=>{});
-  Voice.decode();
+  Voice.decode(); RoundBell.decode();
   return Promise.race([res, new Promise(r=>setTimeout(r,600))]);
 }
 const b64 = s => { const bin=atob(s), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u.buffer; };
@@ -742,15 +744,21 @@ function tokPart(t){
   if(S.callStyle==='numbers' && m.num) return c('n'+m.num+(t.b?'b':''));
   return c(m.id+(t.b&&m.body?'b':''));
 }
-const comboParts = toks => toks.map((t,i)=>Object.assign(tokPart(t),{gap: i<toks.length-1 ? 0.22 : 0.35}));
+const comboParts = toks => toks.map((t,i)=>Object.assign(tokPart(t),{gap: i<toks.length-1 ? 0.02 : 0.35}));
 const partText = p => p.c ? TEXTS[p.c] : p.t;
 
 const LEAD_IN_MS=600;
+let lastPath='nothing spoken yet', warned=false;
 let seqId=0, talking=false, sources=[], idleTimer=null;
 function bestVoice(){
   const vs=speechSynthesis.getVoices();
   if(S.voiceURI){ const v=vs.find(v=>v.voiceURI===S.voiceURI); if(v) return v; }
   const en=vs.filter(v=>/^en[-_]/i.test(v.lang));
+  if(S.voicePack==='michael'){ // keep the coach male if we ever have to fall back
+    const male=en.filter(v=>/\b(daniel|aaron|arthur|fred|alex|tom|oliver|rishi|evan|nathan|reed|rocko|eddy|gordon|male)\b/i.test(v.name));
+    const pick=male.find(v=>/premium|enhanced/i.test(v.name))||male.find(v=>/aaron|daniel|arthur|evan|nathan/i.test(v.name))||male[0];
+    if(pick) return pick;
+  }
   return en.find(v=>/premium/i.test(v.name)) || en.find(v=>/enhanced/i.test(v.name)) || en.find(v=>/natural|neural/i.test(v.name))
       || en.find(v=>/google us english/i.test(v.name)) || en.find(v=>/samantha|ava|daniel|karen/i.test(v.name)) || en.find(v=>v.localService) || en[0];
 }
@@ -787,6 +795,11 @@ async function say(parts, prio=1){
   if(id!==seqId) return;
   if(actx && actx.state!=='running'){ try{ await Promise.race([actx.resume(), new Promise(r=>setTimeout(r,300))]); }catch(e){} }
   const live = actx && actx.state==='running';
+  const nClips=Object.keys(Voice.bufs).length;
+  lastPath = S.voicePack==='device' ? 'phone voice (chosen in settings)'
+    : !actx ? 'phone voice: audio not started' : !live ? 'phone voice: audio engine '+actx.state
+    : nClips===0 ? 'phone voice: '+(Voice.error||'coach clips still loading') : 'coach clips ('+S.voicePack+')';
+  if(S.voicePack!=='device' && !lastPath.startsWith('coach') && timer && !warned){ warned=true; toast('Coach voice not ready yet, using phone voice'); }
   const clipOK = p => S.voicePack!=='device' && live && p.c && Voice.bufs[p.c];
   try{
     for(let i=0;i<parts.length && id===seqId;){
@@ -798,7 +811,7 @@ async function say(parts, prio=1){
   }
 }
 /* Boxing-ring sounds, synthesized (no audio files needed) */
-function bell(count=1, gap=0.32){
+function bell(count=1, gap=0.32, len=1){
   const a=actx; if(!a || S.sfx!=='bell') return;
   try{
     const out=a.createGain(); out.gain.value=0.45; out.connect(a.destination);
@@ -807,7 +820,7 @@ function bell(count=1, gap=0.32){
       const t=a.currentTime+0.02+n*gap, last=n===count-1;
       for(const [ratio,amp,dec] of P){
         const o=a.createOscillator(), g=a.createGain(); o.type='sine'; o.frequency.value=740*ratio;
-        const d=last?dec:dec*0.45;
+        const d=(last?dec:dec*0.45)*len;
         g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(amp*0.5,t+0.004); g.gain.exponentialRampToValueAtTime(0.0001,t+d);
         o.connect(g).connect(out); o.start(t); o.stop(t+d+0.05);
       }
@@ -836,15 +849,22 @@ function clapper(){ // the wooden "10 seconds" knock
     }
   }catch(e){}
 }
+// Your own round-end bell: put an mp3 at audio/round-bell.mp3 (falls back to a triple ring)
+const RoundBell = { raw:null, buf:null, error:'',
+  fetch(){ fetch('audio/round-bell.mp3').then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.arrayBuffer(); })
+    .then(ab=>{ this.raw=ab; if(actx) this.decode(); }).catch(e=>{ this.error='audio/round-bell.mp3 not found ('+e.message+')'; }); },
+  decode(){ if(!actx || !this.raw || this.buf) return; const ab=this.raw.slice(0);
+    const done=b=>{ this.buf=b; }, fail=()=>{ this.error='round-bell.mp3 could not be decoded'; };
+    const p=actx.decodeAudioData(ab,done,fail); if(p&&p.then) p.then(done,fail); },
+  play(){ if(!actx) return; if(!this.buf) return bell(3);
+    const src=actx.createBufferSource(), g=actx.createGain(); g.gain.value=0.9; src.buffer=this.buf; src.connect(g).connect(actx.destination); src.start(); }
+};
 function sfx(kind){
   if(S.sfx==='off') return;
   const B=S.sfx==='bell';
-  if(kind==='hard') B ? bell(1) : beep(1046,0.35);
-  else if(kind==='mod') beep(660,0.2);
-  else if(kind==='rest') beep(440,0.18,2);
-  else if(kind==='roundEnd') B ? bell(3) : beep(440,0.18,2);
+  if(kind==='transition') B ? bell(1,0.32,0.5) : beep(880,0.2);       // every hard / moderate / rest change
+  else if(kind==='roundEnd' || kind==='done') B ? RoundBell.play() : beep(440,0.18,3);
   else if(kind==='ten') B ? clapper() : null;
-  else if(kind==='done') B ? bell(5,0.28) : beep(1046,0.2,3,0.08);
 }
 function beep(freq=880, dur=0.15, count=1, gap=0.12){
   const a=actx; if(S.sfx==='off' || !a) return;
@@ -907,7 +927,8 @@ async function startWorkout(w){
   $('#player').hidden=false; resetEnd();
   $('#pDots').innerHTML=Array.from({length:S.sets},()=>'<i></i>').join('');
   lockScreen(); setPlayIcon();
-  await unlocked; await Promise.race([Voice.ready, new Promise(r=>setTimeout(r,3000))]);
+  warned=false; $('#pPhase').textContent='Loading coach…'; $('#pTime').textContent=''; $('#pMoves').innerHTML='';
+  await unlocked; await Promise.race([Voice.ready, new Promise(r=>setTimeout(r,10000))]);
   startSeg(0);
   clearInterval(timer); timer=setInterval(tick,100);
 }
@@ -915,7 +936,7 @@ function startSeg(i){
   idx=Math.max(0,Math.min(segs.length-1,i));
   const s=segs[idx];
   segEnd=performance.now()+s.dur*1000; remMs=s.dur*1000; callPtr=0; lastWhole=null;
-  if(s.type==='hard') sfx('hard'); else if(s.type==='mod') sfx('mod'); else if(s.type==='rest') sfx(s.big||s.cool ? 'roundEnd' : 'rest');
+  if(s.type==='rest' && (s.big||s.cool)) sfx('roundEnd'); else if(s.type!=='ready') sfx('transition');
   const tiles = (toks,cls='') => toks.map(t=>`<div class="pm ${cls}"><div class="th">${svgFor(t)}</div><span>${esc(label(t))}</span></div>`).join('');
   $('#pMoves').innerHTML = s.type==='rest' && s.next
     ? `<div class="p-grp"><div class="p-lbl">Hard</div><div class="p-row">${tiles(s.show)}</div></div>`
@@ -978,7 +999,7 @@ $('#pEnd').onclick=()=>{
 };
 function finish(){
   clearInterval(timer); timer=null;
-  sfx('done'); say([c('done')],2);
+  say([c('done')],2);
   $('#player').className='done';
   $('#pPhase').textContent='Done'; $('#pTime').textContent='💪'; $('#pMoves').innerHTML='';
   $('#pSub').textContent=`${RUN.name} · ${RUN.rounds.length} rounds · ${Math.round((Date.now()-startedAt)/60000)} min`;
@@ -994,7 +1015,7 @@ document.addEventListener('keydown',e=>{
 
 /* ================= Boot ================= */
 if(/iPhone|iPad/.test(navigator.userAgent)) $('#iosHint').hidden=false;
-Voice.load(S.voicePack);
+Voice.load(S.voicePack); RoundBell.fetch();
 renderHome();
 if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
