@@ -1,19 +1,23 @@
 # Bag HIIT
 
-A static, offline-capable web app for 30-min heavy-bag HIIT sessions with voice cues.
+A static, offline-capable web app for heavy-bag HIIT with a voice coach.
+Each round = 3 × (60s hard + 30s moderate + 30s rest), then a 90s round break.
 
 ## Put it on GitHub Pages
-1. Create a new public repo (e.g. `bag-hiit`) and upload all files in this folder (keep the `icons/` folder).
-2. Repo **Settings → Pages → Source: Deploy from a branch → main / (root)** → Save.
+1. Create a repo (e.g. `bag-hiit`) and upload everything in this folder (keep `icons/` and `audio/`).
+2. Repo **Settings → Pages → Deploy from a branch → main / (root)** → Save.
 3. After ~1 minute it's live at `https://<your-username>.github.io/bag-hiit/`.
-4. On your phone, open it once online, then **Add to Home Screen**. It then works offline in the gym.
+4. On your phone, open it once while online (this caches the voice clips), then **Add to Home Screen**.
 
-When you change `index.html`, bump `VERSION` in `sw.js` so phones pick up the update.
+If you change any file, bump `VERSION` in `sw.js` so phones pick up the update.
 
-## Workout format
+## Voice
+`audio/heart` and `audio/michael` are natural-sounding voice clips generated with the open-source
+Kokoro TTS model. Custom words that aren't in the clip set fall back to the phone's built-in voice.
+
+## Text format (Edit → Text)
 ```
 Round 1
-2-3-2
-2-cover-1-1-cover
+Hard: 2-3-2
+Moderate: 2-cover-1-1-cover
 ```
-Two combos in a round → Set 1 = first, Set 2 = second, Set 3 = both alternating.
