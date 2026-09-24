@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111214">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bag HIIT">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Bag HIIT</title>
+<style>
+:root{
+  --bg:#111214; --surface:#1b1d21; --surface2:#25282d; --line:#33373d;
+  --text:#f2f3f5; --muted:#9aa0a8; --accent:#ff4d3d;
+  --hard:#e5322d; --light:#e8a317; --rest:#2f7fe0; --ready:#3a3f47; --done:#1f9d55;
+  --radius:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif}
+body{min-height:100dvh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+[hidden]{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+header.bar{display:flex;align-items:center;gap:12px;padding:8px 0 16px}
+header.bar h1{font-size:24px;margin:0;flex:1;letter-spacing:-.02em}
+header.bar h1 span{color:var(--accent)}
+.icon-btn{width:44px;height:44px;border-radius:12px;background:var(--surface);display:grid;place-items:center;font-size:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border-radius:12px;background:var(--surface2);font-weight:600}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.danger{color:#ff7a70}
+.btn.block{width:100%}
+.btn.big{min-height:60px;font-size:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.card{background:var(--surface);border-radius:var(--radius);padding:16px;margin-bottom:12px;border:1px solid transparent;text-align:left;width:100%;display:block}
+button.card:active{border-color:var(--line)}
+.card h3{margin:0 0 4px;font-size:18px}
+.card .meta{color:var(--muted);font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{background:var(--surface2);border-radius:8px;padding:3px 8px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.round{background:var(--surface);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+.round h4{margin:0 0 8px;font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.setline{display:flex;gap:10px;padding:4px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px}
+.setline b{color:var(--muted);font-weight:500;min-width:52px;white-space:nowrap;font-family:inherit}
+.legend{font-size:13px;color:var(--muted);background:var(--surface);border-radius:12px;padding:10px 14px;margin:12px 0}
+label.f{display:block;margin:14px 0 6px;font-size:14px;color:var(--muted)}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;outline:none}
+textarea{min-height:320px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;line-height:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toggle{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:12px;padding:12px 14px;margin-top:10px}
+.toggle input{width:22px;height:22px;accent-color:var(--accent)}
+h2{font-size:20px;margin:24px 0 8px}
+
+/* Player */
+#player{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--ready);transition:background .35s;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);z-index:5}
+#player.hard{background:var(--hard)} #player.light{background:#b97d0b} #player.rest{background:var(--rest)} #player.done{background:var(--done)}
+.p-top{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;font-weight:600}
+.p-top .pill{background:rgba(0,0,0,.25);border-radius:999px;padding:6px 12px;font-size:15px}
+.p-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 16px;gap:6px;min-height:0}
+.p-phase{font-size:clamp(22px,6vw,34px);font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.9}
+.p-time{font-size:clamp(96px,30vw,200px);font-weight:800;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-.04em}
+.p-combo{font-size:clamp(28px,9vw,60px);font-weight:800;line-height:1.1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;max-width:100%;overflow-wrap:anywhere}
+.p-sub{font-size:18px;opacity:.85;min-height:1.4em}
+.p-dots{display:flex;gap:6px;justify-content:center;margin-top:8px}
+.p-dots i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.3)}
+.p-dots i.on{background:#fff}
+.p-bar{height:6px;background:rgba(0,0,0,.25);margin:0 18px;border-radius:3px;overflow:hidden}
+.p-bar>div{height:100%;background:#fff;width:0}
+.p-ctrl{display:flex;justify-content:center;align-items:center;gap:22px;padding:22px 16px 26px}
+.p-ctrl button{width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.25);color:#fff;font-size:24px;display:grid;place-items:center}
+.p-ctrl button.main{width:92px;height:92px;background:#fff;color:#111;font-size:34px}
+.p-ctrl svg{width:28px;height:28px;fill:currentColor}
+.p-ctrl button.main svg{width:40px;height:40px}
+.p-end{font-size:14px;font-weight:600;background:rgba(0,0,0,.25);border-radius:999px;padding:8px 14px;color:#fff}
+.p-end.armed{background:#fff;color:#111}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:10px;z-index:20;font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<section id="home" class="wrap">
+  <header class="bar">
+    <h1>Bag <span>HIIT</span></h1>
+    <button class="icon-btn" id="btnSettings" aria-label="Settings">⚙︎</button>
+  </header>
+  <div id="list"></div>
+  <button class="btn block" id="btnNew">＋ New workout</button>
+  <p class="muted small" style="margin-top:20px">Tip: start your YouTube Music playlist first, then come back here and hit Start. Voice cues will dip the music while they speak.</p>
+</section>
+
+<!-- DETAIL -->
+<section id="detail" class="wrap" hidden>
+  <header class="bar">
+    <button class="icon-btn" data-back aria-label="Back">‹</button>
+    <h1 id="dTitle"></h1>
+  </header>
+  <div class="muted" id="dMeta"></div>
+  <div class="legend">1 jab · 2 cross · 3 lead hook · 4 rear hook · 5 lead upper · 6 rear upper · <b>b</b> = body (e.g. 3b)</div>
+  <div id="dRounds"></div>
+  <div style="height:90px"></div>
+  <div style="position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 30%)">
+    <div class="wrap" style="padding:0;display:flex;gap:10px">
+      <button class="btn" id="btnEdit">Edit</button>
+      <button class="btn" id="btnDup">Copy</button>
+      <button class="btn primary big" id="btnStart" style="flex:1">▶ Start</button>
+    </div>
+  </div>
+</section>
+
+<!-- EDIT -->
+<section id="edit" class="wrap" hidden>
+  <header class="bar">
+    <button class="icon-btn" data-back aria-label="Back">‹</button>
+    <h1>Edit workout</h1>
+  </header>
+  <label class="f" for="eName">Name</label>
+  <input type="text" id="eName" placeholder="My workout">
+  <label class="f" for="eText">Rounds — start each with “Round”, one combo per line</label>
+  <textarea id="eText" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+  <p class="muted small">With 2 combos in a round: Set 1 = first, Set 2 = second, Set 3 = both alternating. With 1 line, every set uses it. With 3+, one per set. Lines without numbers (e.g. “Slipping”, “Movement”) are called once as a drill.</p>
+  <div class="row" style="margin-top:12px">
+    <button class="btn primary" id="btnSave" style="flex:1">Save</button>
+    <button class="btn danger" id="btnDelete">Delete</button>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section id="settings" class="wrap" hidden>
+  <header class="bar">
+    <button class="icon-btn" data-back aria-label="Back">‹</button>
+    <h1>Settings</h1>
+  </header>
+  <h2>Timing (seconds)</h2>
+  <div class="grid2">
+    <div><label class="f">Hard</label><input type="number" min="5" data-s="hard"></div>
+    <div><label class="f">Light / moderate</label><input type="number" min="0" data-s="light"></div>
+    <div><label class="f">Rest after each set</label><input type="number" min="0" data-s="rest"></div>
+    <div><label class="f">Sets per round</label><input type="number" min="1" max="10" data-s="sets"></div>
+    <div><label class="f">Get-ready countdown</label><input type="number" min="3" data-s="ready"></div>
+    <div><label class="f">Call combo every</label><input type="number" min="3" data-s="callEvery"></div>
+  </div>
+
+  <h2>Voice & sound</h2>
+  <label class="toggle">Voice guidance <input type="checkbox" data-s="voice"></label>
+  <label class="toggle">Call combo during light phase <input type="checkbox" data-s="callLight"></label>
+  <label class="toggle">Beeps at transitions <input type="checkbox" data-s="beeps"></label>
+  <label class="f" for="sVoice">Voice</label>
+  <select id="sVoice" data-s="voiceURI"></select>
+  <div class="grid2">
+    <div><label class="f">Speed</label><input type="number" step="0.05" min="0.5" max="2" data-s="rate"></div>
+    <div><label class="f">Volume (0–1)</label><input type="number" step="0.1" min="0" max="1" data-s="volume"></div>
+  </div>
+  <label class="f" for="sMode">When the voice speaks, background music should…</label>
+  <select id="sMode" data-s="audioMode">
+    <option value="duck">Dip in volume (duck)</option>
+    <option value="pause">Pause briefly</option>
+    <option value="mix">Keep playing at full volume</option>
+  </select>
+  <p class="muted small">Ducking is handled by your phone. It works on iPhone (Safari 17+) and most Android phones. Play a song, then tap Test.</p>
+  <button class="btn block" id="btnTest">🔊 Test voice</button>
+
+  <h2>Callout words</h2>
+  <p class="muted small">How abbreviations are spoken. One per line: <code>BR = bob right</code>. Numbers and “3b” (three body) are handled automatically.</p>
+  <textarea id="sDict" data-s="dict" style="min-height:140px"></textarea>
+
+  <h2>Backup</h2>
+  <div class="row">
+    <button class="btn" id="btnExport">Export workouts</button>
+    <button class="btn" id="btnImport">Import</button>
+    <input type="file" id="fileImport" accept="application/json" hidden>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button class="btn danger" id="btnReset">Restore default workouts & settings</button>
+  </div>
+  <div style="height:40px"></div>
+</section>
+
+<!-- PLAYER -->
+<section id="player" hidden>
+  <div class="p-top">
+    <span class="pill" id="pRound">Round 1/5 · Set 1/3</span>
+    <span class="pill" id="pTotal">30:00 left</span>
+  </div>
+  <div class="p-bar"><div id="pBar"></div></div>
+  <div class="p-main">
+    <div class="p-phase" id="pPhase">Get ready</div>
+    <div class="p-time" id="pTime">0:10</div>
+    <div class="p-combo" id="pCombo"></div>
+    <div class="p-sub" id="pSub"></div>
+    <div class="p-dots" id="pDots"></div>
+  </div>
+  <div class="p-ctrl">
+    <button id="pPrev" aria-label="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
+    <button id="pPlay" class="main" aria-label="Pause"><svg viewBox="0 0 24 24" id="pPlayIcon"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></button>
+    <button id="pNext" aria-label="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+  </div>
+  <div style="text-align:center;padding-bottom:18px"><button class="p-end" id="pEnd">End workout</button></div>
+</section>
+
+<script>
+/* ---------- Defaults ---------- */
+const DEFAULT_WORKOUTS = [
+  { id:'classic', name:'Classic 30', text:
+`Round 1
+2-3-2
+2-cover-1-1-cover
+
+Round 2
+1-2-3b-4b
+Slipping
+
+Round 3
+1-2-1-2
+BR-3 BL-4
+
+Round 4
+Step left-3b-2
+Step right-2-3
+
+Round 5
+2b-2
+Movement`},
+  { id:'hooks', name:'Power Hooks', text:
+`Round 1
+1-2
+1-1-2
+
+Round 2
+1-2-3
+3-2-3
+
+Round 3
+1-2-3b-2
+2-3b-3
+
+Round 4
+1-2-roll-2-3
+3-roll-3-2
+
+Round 5
+3b-3-2
+4b-4-3
+
+Round 6
+Power 2s
+Freestyle`},
+  { id:'speed', name:'Speed & Defense', text:
+`Round 1
+1-1-2
+1-2-slip-2
+
+Round 2
+1-2-1-2
+Double jab
+
+Round 3
+1-2-slip-slip-2
+2-3-roll-3
+
+Round 4
+1-2-5-2
+6-3-2
+
+Round 5
+1-2-pivot-3
+Step back-1-2
+
+Round 6
+Fast hands
+Movement`},
+  { id:'body', name:'Body Snatcher', text:
+`Round 1
+1-2b
+1b-2
+
+Round 2
+3b-3
+4b-3
+
+Round 3
+1-2-3b-2
+2-3b-2
+
+Round 4
+5b-3
+6b-3-2
+
+Round 5
+1-2b-3b
+1b-2-3
+
+Round 6
+Step left-3b-2
+Step right-2b-3
+
+Round 7
+Body shots
+Freestyle`}
+];
+const DEFAULT_SETTINGS = {
+  hard:60, light:30, rest:30, sets:3, ready:10, callEvery:6,
+  voice:true, callLight:false, beeps:true, voiceURI:'', rate:1.05, volume:1, audioMode:'duck',
+  dict:`BR = bob right\nBL = bob left\nSR = slip right\nSL = slip left\ncover = cover`
+};
+
+/* ---------- Storage (safe) ---------- */
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d }catch(e){ return d } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)) }catch(e){} }
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function parseText(t){
+  const rounds=[]; let cur=null;
+  for (const raw of t.split('\n')){
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^round\b/i.test(line)){ cur={combos:[]}; rounds.push(cur); continue; }
+    if (!cur){ cur={combos:[]}; rounds.push(cur); }
+    cur.combos.push(line);
+  }
+  return rounds.filter(r=>r.combos.length);
+}
+const toText = w => w.rounds.map((r,i)=>`Round ${i+1}\n${r.combos.join('\n')}`).join('\n\n');
+const seed = () => DEFAULT_WORKOUTS.map(d=>({id:d.id,name:d.name,rounds:parseText(d.text)}));
+
+let S = Object.assign({}, DEFAULT_SETTINGS, store.get('bh.settings', {}));
+let W = store.get('bh.workouts', null) || seed();
+const saveW = () => store.set('bh.workouts', W);
+const saveS = () => store.set('bh.settings', S);
+
+/* ---------- Combo helpers ---------- */
+const NUM = {'1':'one','2':'two','3':'three','4':'four','5':'five','6':'six','7':'seven','8':'eight'};
+function dict(){
+  const d={};
+  (S.dict||'').split('\n').forEach(l=>{ const m=l.split('='); if(m.length>=2 && m[0].trim()) d[m[0].trim().toLowerCase()] = m.slice(1).join('=').trim(); });
+  return d;
+}
+function say(combo){
+  const d = dict();
+  return combo.split('-').map(t=>t.trim()).filter(Boolean).map(tok=>{
+    if (d[tok.toLowerCase()]) return d[tok.toLowerCase()];
+    return tok.split(/\s+/).map(w=>{
+      const l=w.toLowerCase();
+      if (d[l]) return d[l];
+      const m=l.match(/^(\d)(b)?$/);
+      if (m) return (NUM[m[1]]||m[1]) + (m[2]?' body':'');
+      return w;
+    }).join(' ');
+  }).join(', ');
+}
+const isDrill = c => !/\d/.test(c);
+function setPlan(round){
+  const c = round.combos.length ? round.combos : ['Freestyle'];
+  const out=[];
+  for (let i=0;i<S.sets;i++){
+    if (c.length===2){
+      const k=i%3;
+      out.push(k===2 ? {label:`${c[0]}  /  ${c[1]}`, alt:[c[0],c[1]], mix:true} : {label:c[k], alt:[c[k]]});
+    } else out.push({label:c[i%c.length], alt:[c[i%c.length]]});
+  }
+  return out;
+}
+function totalSecs(w){
+  const per = (+S.hard)+(+S.light)+(+S.rest);
+  return (+S.ready) + w.rounds.length*S.sets*per - (+S.rest);
+}
+const fmt = s => { s=Math.max(0,Math.ceil(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}` };
+
+/* ---------- Navigation ---------- */
+let current=null;
+const views=['home','detail','edit','settings'];
+function show(v){ views.forEach(x=>$('#'+x).hidden = x!==v); window.scrollTo(0,0); }
+document.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>{
+  const vis = views.find(v=>!$('#'+v).hidden);
+  if (vis==='edit' && current && W.includes(current)) openDetail(current); else renderHome();
+});
+
+function renderHome(){
+  $('#list').innerHTML = W.map((w,i)=>`
+    <button class="card" data-i="${i}">
+      <h3>${esc(w.name)}</h3>
+      <div class="meta">${w.rounds.length} rounds · ${Math.round(totalSecs(w)/60)} min</div>
+      <div class="chips">${w.rounds.map(r=>`<span class="chip">${esc(r.combos[0])}</span>`).join('')}</div>
+    </button>`).join('') || '<p class="muted">No workouts yet.</p>';
+  $('#list').querySelectorAll('.card').forEach(c=>c.onclick=()=>openDetail(W[+c.dataset.i]));
+  show('home');
+}
+function openDetail(w){
+  current=w;
+  $('#dTitle').textContent=w.name;
+  $('#dMeta').textContent=`${w.rounds.length} rounds × ${S.sets} sets · ${S.hard}s hard / ${S.light}s light / ${S.rest}s rest · ${fmt(totalSecs(w))} total`;
+  $('#dRounds').innerHTML = w.rounds.map((r,i)=>`
+    <div class="round"><h4>Round ${i+1}</h4>
+      ${setPlan(r).map((p,j)=>`<div class="setline"><b>Set ${j+1}</b><span>${esc(p.label)}${p.mix?' <span class="muted">(alternate)</span>':''}</span></div>`).join('')}
+    </div>`).join('');
+  show('detail');
+}
+function openEdit(w){
+  current=w;
+  $('#eName').value = w ? w.name : '';
+  $('#eText').value = w ? toText(w) : 'Round 1\n1-2\n1-2-3\n\nRound 2\n';
+  $('#btnDelete').hidden = !w;
+  delArmed=false; $('#btnDelete').textContent='Delete';
+  show('edit');
+}
+$('#btnNew').onclick=()=>openEdit(null);
+$('#btnEdit').onclick=()=>openEdit(current);
+$('#btnDup').onclick=()=>{ const c={id:'w'+Date.now(), name:current.name+' (copy)', rounds:JSON.parse(JSON.stringify(current.rounds))}; W.push(c); saveW(); openEdit(c); };
+$('#btnSave').onclick=()=>{
+  const rounds=parseText($('#eText').value);
+  if(!rounds.length) return toast('Add at least one round');
+  const name=$('#eName').value.trim()||'Untitled workout';
+  if (current){ current.name=name; current.rounds=rounds; }
+  else { current={id:'w'+Date.now(),name,rounds}; W.push(current); }
+  saveW(); openDetail(current);
+};
+let delArmed=false;
+$('#btnDelete').onclick=()=>{
+  if(!delArmed){ delArmed=true; $('#btnDelete').textContent='Tap again to delete'; return; }
+  W=W.filter(x=>x!==current); saveW(); current=null; renderHome();
+};
+
+/* ---------- Settings ---------- */
+function loadVoices(){
+  if(!('speechSynthesis' in window)) return;
+  const vs = speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
+  const sel=$('#sVoice');
+  sel.innerHTML = '<option value="">Default</option>' + vs.map(v=>`<option value="${esc(v.voiceURI)}">${esc(v.name)} (${esc(v.lang)})</option>`).join('');
+  sel.value = S.voiceURI || '';
+}
+if ('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+function openSettings(){
+  document.querySelectorAll('[data-s]').forEach(el=>{
+    const k=el.dataset.s;
+    if (el.type==='checkbox') el.checked=!!S[k]; else el.value=S[k];
+  });
+  loadVoices();
+  show('settings');
+}
+document.querySelectorAll('[data-s]').forEach(el=>el.addEventListener('change',()=>{
+  const k=el.dataset.s;
+  S[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? (parseFloat(el.value)||0) : el.value;
+  if (k==='sets') S.sets=Math.max(1,Math.min(10,Math.round(S.sets)));
+  saveS();
+}));
+$('#btnSettings').onclick=openSettings;
+$('#btnTest').onclick=()=>{ unlockAudio(); speak('Round one. Go! '+say('2-3-2'), 2); };
+$('#btnExport').onclick=()=>{
+  const blob=new Blob([JSON.stringify({workouts:W,settings:S},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='bag-hiit-backup.json'; a.click();
+};
+$('#btnImport').onclick=()=>$('#fileImport').click();
+$('#fileImport').onchange=async e=>{
+  try{
+    const data=JSON.parse(await e.target.files[0].text());
+    if(Array.isArray(data.workouts)) { W=data.workouts; saveW(); }
+    if(data.settings){ S=Object.assign({},DEFAULT_SETTINGS,data.settings); saveS(); }
+    toast('Imported'); openSettings();
+  }catch(err){ toast('Could not read that file'); }
+};
+let resetArmed=false;
+$('#btnReset').onclick=()=>{
+  if(!resetArmed){ resetArmed=true; $('#btnReset').textContent='Tap again to restore defaults'; return; }
+  W=seed(); S=Object.assign({},DEFAULT_SETTINGS); saveW(); saveS(); resetArmed=false;
+  $('#btnReset').textContent='Restore default workouts & settings'; toast('Defaults restored'); openSettings();
+};
+function toast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(()=>t.remove(),2000); }
+
+/* ---------- Audio: voice, beeps, ducking ---------- */
+let actx=null;
+function setSession(type){ try{ if(navigator.audioSession) navigator.audioSession.type=type; }catch(e){} }
+const idleSession = () => 'ambient';
+const talkSession = () => S.audioMode==='pause' ? 'transient-solo' : S.audioMode==='mix' ? 'ambient' : 'transient';
+function unlockAudio(){
+  setSession(idleSession());
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    if (actx.state==='suspended') actx.resume();
+  }catch(e){}
+  if ('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); }
+}
+function beep(freq=880, dur=0.15, count=1, gap=0.12){
+  if(!S.beeps || !actx) return;
+  try{
+    let t=actx.currentTime+0.01;
+    for(let i=0;i<count;i++){
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.type='sine'; o.frequency.value=freq;
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t+dur+0.02);
+      t+=dur+gap;
+    }
+  }catch(e){}
+}
+let idleTimer=null;
+function speak(text, prio=1){
+  if(!S.voice || !('speechSynthesis' in window) || !text) return;
+  if (speechSynthesis.speaking || speechSynthesis.pending){
+    if (prio<2) return;          // low-priority repeat call: skip if something is still talking
+    speechSynthesis.cancel();
+  }
+  const u=new SpeechSynthesisUtterance(text);
+  const v=speechSynthesis.getVoices().find(v=>v.voiceURI===S.voiceURI);
+  if(v) u.voice=v;
+  u.rate=S.rate||1; u.volume=S.volume??1; u.lang = v ? v.lang : 'en-US';
+  clearTimeout(idleTimer);
+  setSession(talkSession());
+  u.onend=u.onerror=()=>{ clearTimeout(idleTimer); idleTimer=setTimeout(()=>{ if(!speechSynthesis.speaking) setSession(idleSession()); },350); };
+  speechSynthesis.speak(u);
+}
+function hush(){ if('speechSynthesis' in window) speechSynthesis.cancel(); setSession(idleSession()); }
+
+/* ---------- Timeline ---------- */
+function buildTimeline(w){
+  const segs=[]; const H=+S.hard, L=+S.light, R=+S.rest, nR=w.rounds.length;
+  const plans=w.rounds.map(setPlan);
+  const intro = p => p.mix ? `Mix it up. ${say(p.alt[0])}. Then, ${say(p.alt[1])}` : say(p.alt[0]);
+  segs.push({type:'ready', dur:+S.ready, r:0, s:0, plan:plans[0][0],
+    calls:[{at:0, prio:2, text:`Get ready. Round one. ${intro(plans[0][0])}`}]});
+  for(let r=0;r<nR;r++) for(let s=0;s<S.sets;s++){
+    const p=plans[r][s];
+    // HARD
+    const hc=[{at:0, prio:2, text:(s===0?`Round ${r+1}. `:'')+'Go! '+say(p.alt[0])}];
+    if (p.alt.every(isDrill)){
+      if(H>=40) hc.push({at:Math.round(H/2), prio:2, text:'Halfway. Keep working.'});
+    } else {
+      let k=1;
+      for(let t=S.callEvery; t < H-12; t+=S.callEvery, k++) hc.push({at:t, prio:1, text:say(p.alt[k%p.alt.length])});
+    }
+    if(H>=25) hc.push({at:H-10, prio:2, text:'Ten seconds. Push!'});
+    segs.push({type:'hard', dur:H, r, s, plan:p, calls:hc});
+    // LIGHT
+    if (L>0) segs.push({type:'light', dur:L, r, s, plan:p,
+      calls:[{at:0, prio:2, text: S.callLight ? `Light. ${say(p.alt[0])}` : 'Light. Keep moving.'}]});
+    // REST
+    const last = r===nR-1 && s===S.sets-1;
+    if (!last && R>0){
+      const nr = s===S.sets-1 ? r+1 : r, ns = s===S.sets-1 ? 0 : s+1, np=plans[nr][ns];
+      const calls=[{at:0, prio:2, text: s===S.sets-1 ? `Round ${r+1} done. Rest.` : 'Rest.'}];
+      calls.push({at:Math.max(1,R-9), prio:2, text:`Next${ns===0?`, round ${nr+1}`:''}. ${intro(np)}`});
+      segs.push({type:'rest', dur:R, r, s, next:{r:nr,s:ns,plan:np}, calls});
+    }
+  }
+  return segs;
+}
+
+/* ---------- Player engine ---------- */
+let segs=[], idx=0, segEnd=0, remMs=0, paused=false, timer=null, callPtr=0, lastWhole=null, wakeLock=null, startedAt=0, W_run=null;
+const PHASE = {ready:'Get ready', hard:'Hard', light:'Light', rest:'Rest'};
+
+async function lockScreen(){ try{ if('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && timer && !paused) lockScreen(); });
+
+function startWorkout(w){
+  unlockAudio();
+  W_run=w; segs=buildTimeline(w); paused=false; startedAt=Date.now();
+  views.forEach(v=>$('#'+v).hidden=true);
+  $('#player').hidden=false; endArmed=false; $('#pEnd').textContent='End workout'; $('#pEnd').classList.remove('armed');
+  $('#pDots').innerHTML = Array.from({length:S.sets},()=>'<i></i>').join('');
+  lockScreen(); setPlayIcon();
+  startSeg(0);
+  clearInterval(timer); timer=setInterval(tick,100);
+}
+function startSeg(i, silent){
+  idx=Math.max(0,Math.min(segs.length-1,i));
+  const s=segs[idx];
+  segEnd=performance.now()+s.dur*1000; remMs=s.dur*1000; callPtr=0; lastWhole=null;
+  if(!silent){
+    if(s.type==='hard') beep(1046,0.35);
+    else if(s.type==='light') beep(660,0.25);
+    else if(s.type==='rest') beep(440,0.18,2);
+  }
+  render();
+}
+function tick(){
+  if(paused) return;
+  const now=performance.now();
+  let rem=(segEnd-now)/1000;
+  if(rem<=0){
+    if(idx>=segs.length-1) return finish();
+    startSeg(idx+1); rem=segs[idx].dur;
+  }
+  const s=segs[idx], el=s.dur-rem;
+  while(callPtr<s.calls.length && el>=s.calls[callPtr].at){
+    const c=s.calls[callPtr++];
+    if (el - c.at < 2) speak(c.text, c.prio);   // don't replay stale calls after a long background pause
+  }
+  const whole=Math.ceil(rem);
+  if(whole!==lastWhole){
+    if((s.type==='rest'||s.type==='ready') && whole<=3 && whole>=1 && lastWhole!==null) beep(880,0.12);
+    lastWhole=whole;
+  }
+  render(rem);
+}
+function render(rem){
+  const s=segs[idx]; if(!s) return;
+  if(rem==null) rem=paused? remMs/1000 : (segEnd-performance.now())/1000;
+  const P=$('#player');
+  P.className = s.type==='ready' ? '' : s.type;
+  $('#pPhase').textContent = paused ? 'Paused' : PHASE[s.type];
+  $('#pTime').textContent = fmt(rem);
+  const nR=W_run.rounds.length;
+  const disp = s.type==='rest' ? s.next : s;
+  $('#pRound').textContent = `Round ${disp.r+1}/${nR} · Set ${disp.s+1}/${S.sets}`;
+  if (s.type==='rest'){
+    $('#pCombo').textContent = s.next.plan.label;
+    $('#pSub').textContent = s.next.s===0 ? `Up next: Round ${s.next.r+1}` : 'Up next';
+  } else {
+    $('#pCombo').textContent = s.plan.label;
+    $('#pSub').textContent = s.type==='light' ? 'Moderate pace — stay loose' : s.type==='ready' ? 'Round 1 · Set 1' : (s.plan.mix ? 'Alternate both combos' : '');
+  }
+  $('#pDots').querySelectorAll('i').forEach((d,j)=>d.classList.toggle('on', j<=disp.s));
+  let left=rem; for(let j=idx+1;j<segs.length;j++) left+=segs[j].dur;
+  const total=segs.reduce((a,b)=>a+b.dur,0);
+  $('#pTotal').textContent = `${fmt(left)} left`;
+  $('#pBar').style.width = (100*(1-left/total)).toFixed(2)+'%';
+}
+function setPlayIcon(){
+  $('#pPlayIcon').innerHTML = paused ? '<path d="M7 5v14l12-7z"/>' : '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>';
+  $('#pPlay').setAttribute('aria-label', paused?'Resume':'Pause');
+}
+function togglePause(){
+  if(!segs.length) return;
+  if(!paused){ remMs=Math.max(0,segEnd-performance.now()); paused=true; hush(); }
+  else { unlockAudio(); segEnd=performance.now()+remMs; paused=false; lockScreen(); speak('Resume', 2); }
+  setPlayIcon(); render();
+}
+$('#pPlay').onclick=togglePause;
+$('#pNext').onclick=()=>{ hush(); if(idx>=segs.length-1) return finish(); jump(idx+1); };
+$('#pPrev').onclick=()=>{
+  hush();
+  const el = segs[idx].dur - (paused? remMs/1000 : (segEnd-performance.now())/1000);
+  jump(el>3 ? idx : idx-1);
+};
+function jump(i){ startSeg(i); if(paused){ remMs=segs[idx].dur*1000; render(); } }
+let endArmed=false;
+$('#pEnd').onclick=()=>{
+  if(!endArmed){ endArmed=true; $('#pEnd').textContent='Tap again to end'; $('#pEnd').classList.add('armed'); setTimeout(()=>{endArmed=false;$('#pEnd').textContent='End workout';$('#pEnd').classList.remove('armed');},3000); return; }
+  stopPlayer(); openDetail(W_run);
+};
+function stopPlayer(){
+  clearInterval(timer); timer=null; hush(); segs=[];
+  try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=null;
+  $('#player').hidden=true;
+}
+function finish(){
+  clearInterval(timer); timer=null;
+  const mins=Math.round((Date.now()-startedAt)/60000);
+  beep(1046,0.2,3,0.08);
+  speak('Workout complete. Great job!', 2);
+  $('#player').className='done';
+  $('#pPhase').textContent='Done';
+  $('#pTime').textContent='💪';
+  $('#pCombo').textContent=W_run.name;
+  $('#pSub').textContent=`${W_run.rounds.length} rounds · ${mins} min`;
+  $('#pBar').style.width='100%'; $('#pTotal').textContent='0:00 left';
+  $('#pEnd').textContent='Close'; endArmed=true;
+}
+document.addEventListener('keydown',e=>{
+  if($('#player').hidden) return;
+  if(e.code==='Space'){ e.preventDefault(); togglePause(); }
+  if(e.code==='ArrowRight') $('#pNext').click();
+  if(e.code==='ArrowLeft') $('#pPrev').click();
+});
+$('#btnStart').onclick=()=>startWorkout(current);
+
+/* ---------- Boot ---------- */
+renderHome();
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
