@@ -229,8 +229,11 @@ h2{font-size:20px;margin:24px 0 8px}
   <h2>Voice</h2>
   <label class="f" for="sPack">Coach voice</label>
   <select id="sPack" data-s="voicePack">
-    <option value="heart">Natural: Heart (female)</option>
-    <option value="michael">Natural: Michael (male)</option>
+    <option value="heart">Natural: Heart (female, warm)</option>
+    <option value="michael">Natural: Michael (male, calm)</option>
+    <option value="puck">Natural: Puck (male, upbeat)</option>
+    <option value="fenrir">Natural: Fenrir (male, deep)</option>
+    <option value="bella">Natural: Bella (female, upbeat)</option>
     <option value="device">Phone's built-in voice</option>
   </select>
   <div id="devVoiceWrap">
@@ -755,7 +758,7 @@ $('#btnTest').onclick=async()=>{ await unlockAudio(); $('#diag').textContent='Lo
 $('#btnTestTTS').onclick=()=>{ unlockAudio(); stopVoice(); ttsSay('Phone voice check. Round one. Go!'); diag(); };
 $('#btnTestBeep').onclick=async()=>{ await unlockAudio(); const was=S.sfx; S.sfx='bell'; bell(1,0.32,0.5); setTimeout(()=>clapper(),1500); setTimeout(()=>{ RoundBell.play(); S.sfx=was; },2600); diag(); };
 function diag(){
-  const n=Object.keys(Voice.bufs).length, total=Object.keys(TEXTS).length;
+  const n=Object.keys(Voice.bufs).length, total=Object.keys(Voice.raw).length||'?';
   $('#diag').textContent = [
     `Coach clips: ${S.voicePack==='device' ? 'using phone voice' : Voice.error ? '✗ '+Voice.error : n===total ? '✓ '+n+'/'+total+' ready' : !Object.keys(Voice.raw).length ? 'downloading…' : 'preparing '+n+'/'+total}`,
     `Last spoken with: ${lastPath}`,
@@ -849,17 +852,22 @@ function tokPart(t){
   if(S.callStyle==='numbers' && m.num) return c('n'+m.num+(t.b?'b':''));
   return c(m.id+(t.b&&m.body?'b':''));
 }
-const comboParts = toks => toks.map((t,i)=>Object.assign(tokPart(t),{gap: i<toks.length-1 ? 0.02 : 0.35}));
-const partText = p => p.c ? TEXTS[p.c] : p.t;
+// Multi-move combos use pieces cut from one natural phrase ("two, three, two!") so they flow like a real coach.
+function comboParts(toks){
+  const P=toks.map(tokPart), n=P.length;
+  if(n>1) P.forEach((p,i)=>{ if(!p.c) return; const k=p.c+(i===0?'_a':i===n-1?'_z':'_m'); if(Voice.bufs[k]||Voice.raw[k]) p.c=k; });
+  return P.map((p,i)=>Object.assign(p,{gap: i<n-1 ? 0 : 0.35}));
+}
+const partText = p => p.c ? (TEXTS[p.c] || TEXTS[p.c.replace(/_[amz]$/,'')]) : p.t;
 
 const LEAD_IN_MS=600;
-let lastPath='nothing spoken yet', warned=false;
+let lastPath='nothing spoken yet', warned=false, voiceHoldUntil=0;
 let seqId=0, talking=false, sources=[], idleTimer=null;
 function bestVoice(){
   const vs=speechSynthesis.getVoices();
   if(S.voiceURI){ const v=vs.find(v=>v.voiceURI===S.voiceURI); if(v) return v; }
   const en=vs.filter(v=>/^en[-_]/i.test(v.lang));
-  if(S.voicePack==='michael'){ // keep the coach male if we ever have to fall back
+  if(['michael','puck','fenrir'].includes(S.voicePack)){ // keep the coach male if we ever have to fall back
     const male=en.filter(v=>/\b(daniel|aaron|arthur|fred|alex|tom|oliver|rishi|evan|nathan|reed|rocko|eddy|gordon|male)\b/i.test(v.name));
     const pick=male.find(v=>/premium|enhanced/i.test(v.name))||male.find(v=>/aaron|daniel|arthur|evan|nathan/i.test(v.name))||male[0];
     if(pick) return pick;
@@ -896,7 +904,8 @@ async function say(parts, prio=1){
   stopVoice();
   const id=seqId; talking=true;
   clearTimeout(idleTimer); setSession(talkSession());
-  await new Promise(r=>setTimeout(r, LEAD_IN_MS));   // give the music a moment to dip before talking
+  const hold=Math.max(0, voiceHoldUntil-Date.now());   // let the round bell ring out first
+  await new Promise(r=>setTimeout(r, LEAD_IN_MS+hold));   // give the music a moment to dip before talking
   if(id!==seqId) return;
   if(actx && actx.state!=='running'){ try{ await Promise.race([actx.resume(), new Promise(r=>setTimeout(r,300))]); }catch(e){} }
   const live = actx && actx.state==='running';
@@ -961,8 +970,9 @@ const RoundBell = { raw:null, buf:null, error:'',
   decode(){ const dc=decoderCtx(); if(!dc || !this.raw || this.buf) return; const ab=this.raw.slice(0);
     const done=b=>{ this.buf=b; }, fail=()=>{ this.error='round-bell.mp3 could not be decoded'; };
     const p=dc.decodeAudioData(ab,done,fail); if(p&&p.then) p.then(done,fail); },
-  play(){ if(!actx) return; if(!this.buf) return bell(3);
-    const src=actx.createBufferSource(), g=actx.createGain(); g.gain.value=0.9; src.buffer=this.buf; src.connect(g).connect(actx.destination); src.start(); }
+  play(){ if(!actx) return 0; if(!this.buf){ bell(3); voiceHoldUntil=Date.now()+1600; return; }
+    voiceHoldUntil=Date.now()+Math.min(this.buf.duration,4)*1000;
+    const src=actx.createBufferSource(), g=actx.createGain(); g.gain.value=1.6; src.buffer=this.buf; src.connect(g).connect(voiceOut()); src.start(); }
 };
 function sfx(kind){
   if(S.sfx==='off') return;
