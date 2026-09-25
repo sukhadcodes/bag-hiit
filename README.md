@@ -12,7 +12,7 @@ Each round = 3 × (60s hard + 30s moderate + 30s rest), then a 90s round break.
 If you change any file, bump `VERSION` in `sw.js` so phones pick up the update.
 
 ## Voice
-`audio/heart` and `audio/michael` are natural-sounding voice clips generated with the open-source
+`audio/*.json` (heart, michael, puck, fenrir, bella) hold natural-sounding voice clips generated with the open-source
 Kokoro TTS model. Custom words that aren't in the clip set fall back to the phone's built-in voice.
 
 ## Text format (Edit → Text)

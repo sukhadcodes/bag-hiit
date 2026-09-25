@@ -1,5 +1,5 @@
 // Offline cache for Bag HIIT. Bump VERSION whenever you change any file.
-const VERSION = 'bag-hiit-v11';
+const VERSION = 'bag-hiit-v14';
 const CORE = ['./', './index.html', './manifest.webmanifest',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
