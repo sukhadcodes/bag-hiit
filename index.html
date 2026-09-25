@@ -835,7 +835,7 @@ function unlockAudio(){
 function tightBuf(b, a){
   try{
     const d=b.getChannelData(0); let mx=0; for(let i=0;i<d.length;i++){ const v=Math.abs(d[i]); if(v>mx) mx=v; }
-    const thr=mx*0.02; let s0=0, s1=d.length-1;
+    const thr=mx*0.003; let s0=0, s1=d.length-1;
     while(s0<d.length && Math.abs(d[s0])<thr) s0++;
     while(s1>s0 && Math.abs(d[s1])<thr) s1--;
     s0=Math.max(0,s0-Math.round(b.sampleRate*0.004)); s1=Math.min(d.length-1,s1+Math.round(b.sampleRate*0.012));
@@ -861,7 +861,7 @@ const Voice = {
     const dec = ab => new Promise((res,rej)=>{ const p=a.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); });
     return this.ready = this.fetched.then(()=>Promise.all(Object.entries(this.raw).map(async([k,v])=>{
       if(this.bufs[k]) return;
-      try{ let b=await dec(b64(v)); if(/_[amz]$/.test(k)) b=tightBuf(b,a); if(this.pack===pack) this.bufs[k]=b; }catch(e){ this.error='Decode failed'; }
+      try{ let b=await dec(b64(v)); if(/_[amz]$/.test(k)||k.startsWith('c_')) b=tightBuf(b,a); if(this.pack===pack) this.bufs[k]=b; }catch(e){ this.error='Decode failed'; }
     })));
   }
 };
@@ -875,10 +875,12 @@ function tokPart(t){
 // Multi-move combos use pieces cut from one natural phrase ("two, three, two!") so they flow like a real coach.
 function comboParts(toks){
   const P=toks.map(tokPart), n=P.length;
+  // Best: a whole, naturally spoken recording of this exact combo (all built-in combos have one)
+  if(n>1 && P.every(p=>p.c)){ const k='c_'+P.map(p=>p.c).join('.'); if(Voice.bufs[k]||Voice.raw[k]) return [{c:k, gap:0.35}]; }
   if(n>1) P.forEach((p,i)=>{ if(!p.c) return; const k=p.c+(i===0?'_a':i===n-1?'_z':'_m'); if(Voice.bufs[k]||Voice.raw[k]) p.c=k; });
-  return P.map((p,i)=>Object.assign(p,{gap: i<n-1 ? 0.07 : 0.35}));
+  return P.map((p,i)=>Object.assign(p,{gap: i<n-1 ? 0.01 : 0.35}));
 }
-const partText = p => p.c ? (TEXTS[p.c] || TEXTS[p.c.replace(/_[amz]$/,'')]) : p.t;
+const partText = p => !p.c ? p.t : p.c.startsWith('c_') ? p.c.slice(2).split('.').map(k=>(TEXTS[k]||'').replace(/!$/,'')).join(', ')+'!' : (TEXTS[p.c] || TEXTS[p.c.replace(/_[amz]$/,'')]);
 
 const LEAD_IN_MS=600;
 let lastPath='nothing spoken yet', warned=false, voiceHoldUntil=0;
